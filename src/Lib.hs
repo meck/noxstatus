@@ -89,8 +89,10 @@ getInvoices token = do
                                  (sendRequest suppliInvReq)
   return $ (,) <$> (getCInv <$> cResp) <*> (getSInv <$> sResp)
  where
-  clientInvReq = addAccessToken token . setRequestPath "/3/invoices"
-  suppliInvReq = addAccessToken token . setRequestPath "/3/supplierinvoices"
+  clientInvReq =
+    addAccessToken token . setRequestPath "/3/invoices/?filter=unpaidoverdue"
+  suppliInvReq = addAccessToken token
+    . setRequestPath "/3/supplierinvoices/?filter=unpaidoverdue"
 
 addAccessToken :: FnToken -> (Request -> Request)
 addAccessToken token =

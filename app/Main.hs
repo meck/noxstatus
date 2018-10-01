@@ -4,6 +4,7 @@ module Main where
 
 import           Lib
 import qualified ClientSecret                  as CS
+import           Images
 import           Control.Exception
 import           Data.Aeson
 import           Text.PrettyPrint.Boxes  hiding ( (<>) )
@@ -65,17 +66,25 @@ getMenu frmtBB d (cus, sup) = if nCus + nSup < 1 && frmtBB
   nCus    = length cus
   nSup    = length sup
   barItem = if frmtBB
-    then unlines ["Fortnox: " <> show nCus <> "/" <> show nSup, "---"]
+    then unlines
+      [ show nCus
+      <> "/"
+      <> show nSup
+      <> "| templateImage="
+      <> fnIcon
+      <> " size=16 font=Courier"
+      , "---"
+      ]
     else unlines
       [ "Obetalda Kundfakt: " <> show (length cus)
       , "Obetalda Levfakt: " <> show (length sup)
       ]
   table  = addFont $ render $ hsep 2 left $ zipWith (/+/) cTable sTable
   cTable = if null cus
-    then [nullBox]
+    then replicate 4 nullBox
     else getList d frmtBB "Kund:" cus cDueDate cName cBalance cCurrency
   sTable = if null sup
-    then [nullBox]
+    then replicate 4 nullBox
     else getList d frmtBB "Lev:" sup sDueDate sName sTotal sCurrency
   addFont = if frmtBB
     then unlines . fmap (<> "| font=Courier size=14") . lines
