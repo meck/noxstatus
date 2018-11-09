@@ -8,6 +8,8 @@ import           Images
 import           Control.Exception
 import           Data.Aeson
 import           Text.PrettyPrint.Boxes  hiding ( (<>) )
+import qualified Text.PrettyPrint.Boxes        as B
+                                                ( (<>) )
 import           Data.Time.Clock
 import           Data.Time.Calendar
 import           Data.Time.LocalTime
@@ -51,21 +53,48 @@ main = do
         Left (ConnectFail (HttpExceptionRequest _ (ConnectionFailure _))) ->
           if formatForBB opts
             then exitFailure
-            else die "Error: Connetion failed"
+            else die "Error: Connection failed"
         Left  e -> die $ "Error: \n" <> show e
         Right r -> return r
-
-      putStr $ getMenu (formatForBB opts) cDay res'
+      putStr $ makeTable (formatForBB opts) cDay res'
       return ()
 
-getMenu :: Bool -> Day -> ([CustomerInvoice], [SupplierInvoice]) -> String
-getMenu frmtBB d (cus, sup) = if nCus + nSup < 1 && frmtBB
-  then ""
-  else barItem <> table
+makeTable :: Bool -> Day -> ([CustomerInvoice], [SupplierInvoice]) -> String
+makeTable forBB today (cus, sup) = if forBB && nCus + nSup < 1
+  then []
+  else barItem <> render table
  where
-  nCus    = length cus
-  nSup    = length sup
-  barItem = if frmtBB
+  nCus      = length cus
+  nSup      = length sup
+  diffDays' = text . show . diffDays today
+  daysC     = cWithLabels
+    left
+    [ (diffDays' . cDueDate <$> cus, "Days:")
+    , (diffDays' . sDueDate <$> sup, "Days:")
+    ]
+  custC = cWithLabels
+    left
+    [(text . cName <$> cus, "Customer:"), (text . sName <$> sup, "Supplier:")]
+  balC = cWithLabels
+    right
+    [ (text . show . cBalance <$> cus, "Sum:")
+    , (text . show . sTotal <$> sup  , "Sum:")
+    ]
+  currC = cWithLabels
+    left
+    [(text . cCurrency <$> cus, ""), (text . sCurrency <$> sup, "")]
+  balC'   = hsep 1 top [balC, currC]
+  fontStr = "| font=Courier size=14"
+  linkStr = " href=http://fortnox.se"
+  formatC = if forBB
+    then cWithLabels
+      left
+      [ (const (text $ fontStr <> linkStr) <$> cus, fontStr)
+      , (const (text $ fontStr <> linkStr) <$> sup, fontStr)
+      ]
+    else nullBox
+  table   = hsep 2 top [daysC, custC, balC'] B.<> formatC
+  barItem = if forBB
     then unlines
       [ show nCus
       <> "/"
@@ -76,57 +105,18 @@ getMenu frmtBB d (cus, sup) = if nCus + nSup < 1 && frmtBB
       , "---"
       ]
     else unlines
-      [ "Obetalda Kundfakt: " <> show (length cus)
-      , "Obetalda Levfakt: " <> show (length sup)
+      [ "Unpaid customer invoices: " <> show nCus
+      , "Unpaid supplier invoices: " <> show nSup
+      , ""
       ]
-  table  = addFont $ render $ hsep 2 left $ zipWith (/+/) cTable sTable
-  cTable = if null cus
-    then replicate 4 nullBox
-    else getList d frmtBB "Kund:" cus cDueDate cName cBalance cCurrency
-  sTable = if null sup
-    then replicate 4 nullBox
-    else getList d frmtBB "Lev:" sup sDueDate sName sTotal sCurrency
-  addFont = if frmtBB
-    then unlines . fmap (<> "| font=Courier size=14") . lines
-    else id
-
-
-getList
-  :: (Show a1, Foldable f, Functor f)
-  => Day
-  -> Bool
-  -> String
-  -> f a2
-  -> (a2 -> Day)
-  -> (a2 -> String)
-  -> (a2 -> a1)
-  -> (a2 -> String)
-  -> [Box]
-getList day frmtBB label inv getDay getName getBalance getCurr =
-  [colDays, colNames, colBal, colBitbar]
- where
-  colDays =
-    vcat left
-      $ text "Dagar:"
-      : [vcat right (text . show . diffDays day . getDay <$> inv)]
-  colNames = vcat left $ text label : [vcat left (text . getName <$> inv)]
-  colBal =
-    vcat left
-      $ text "Summa:"
-      : [ vcat
-            right
-            (text . (\x -> show (getBalance x) <> " " <> getCurr x) <$> inv)
-        ]
-  colBitbar = if frmtBB
-    then
-      vcat right
-      $ emptyBox 1 1
-      : (text <$> replicate (length inv) "| href=http://fortnox.se")
-    else nullBox
+  cWithLabels itemA bss = vcat left $ subCol <$> bss
+   where
+    subCol (subItems, label) =
+      if length subItems < 1 then nullBox else text label // vcat itemA subItems
 
 currentDay :: IO Day
 currentDay =
-  localDay <$> (utcToLocalTime <$> getCurrentTimeZone <*> getCurrentTime)
+  localDay <$> liftA2 utcToLocalTime getCurrentTimeZone getCurrentTime
 
 tokenPath :: IO FilePath
 tokenPath = getXdgDirectory XdgConfig $ "noxstatus" <> "/" <> "fn_token.json"
