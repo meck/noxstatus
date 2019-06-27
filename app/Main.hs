@@ -89,8 +89,8 @@ makeTable forBB today (cus, sup) = if forBB && nCus + nSup < 1
   formatC = if forBB
     then cWithLabels
       left
-      [ (const (text $ fontStr <> linkStr) <$> cus, fontStr)
-      , (const (text $ fontStr <> linkStr) <$> sup, fontStr)
+      [ (text (fontStr <> linkStr) <$ cus, fontStr)
+      , (text (fontStr <> linkStr) <$ sup, fontStr)
       ]
     else nullBox
   table   = hsep 2 top [daysC, custC, balC'] B.<> formatC
@@ -112,7 +112,7 @@ makeTable forBB today (cus, sup) = if forBB && nCus + nSup < 1
   cWithLabels itemA bss = vcat left $ subCol <$> bss
    where
     subCol (subItems, label) =
-      if length subItems < 1 then nullBox else text label // vcat itemA subItems
+      if null subItems then nullBox else text label // vcat itemA subItems
 
 currentDay :: IO Day
 currentDay =
