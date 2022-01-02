@@ -1,5 +1,4 @@
-.stack-work/
-noxstatus.cabal
-stack.yaml.lock
 result
+flake.lock
+dist-newstyle
 *~

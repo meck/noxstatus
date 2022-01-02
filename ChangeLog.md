@@ -1,3 +1,5 @@
 # Changelog for noxstatus
 
-## Unreleased changes
+## 0.1.1.0 
+
+- Change to nix flake builds
