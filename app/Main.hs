@@ -3,9 +3,9 @@
 
 module Main (main) where
 
-import qualified ClientSecret as CS
 import Control.Exception
 import Data.Aeson
+import Data.Char (isSpace)
 import Data.Time.Calendar
 import Data.Time.Clock
 import Data.Time.LocalTime
@@ -14,6 +14,7 @@ import Lib
 import Network.HTTP.Client.Conduit
 import Options.Applicative
 import System.Directory
+import System.Environment (lookupEnv)
 import System.Exit
 import System.IO.Error
 import Text.PrettyPrint.Boxes hiding ((<>))
@@ -31,7 +32,7 @@ argOpts :: Parser ArgOpts
 argOpts =
   ArgOpts
     <$> switch
-      ((long "bitbar" <> short 'b') <> help "Format the output for bitbar")
+      ((long "swiftbar" <> short 's') <> help "Format the output for swiftbar")
     <*> optional
       ( strOption
           ( long "auth" <> metavar "AUTHCODE"
@@ -42,11 +43,20 @@ argOpts =
 
 main :: IO ()
 main = do
+  secFP <- clientSecretFP
   opts <-
     execParser $
       info
         (argOpts <**> helper)
-        (fullDesc <> header "noxstatus - get invoice status from fortnox.se")
+        ( fullDesc
+            <> header "noxstatus - get invoice status from fortnox.se"
+            <> footer
+              ( "A Fortnox client secret must be set from either "
+                  <> "the envar $NOX_CLIENT_SECRET or in a file: \""
+                  <> secFP
+                  <> "\"."
+              )
+        )
 
   case authParams opts of
     Just ac -> newTokenFile ac
@@ -133,8 +143,34 @@ currentDay :: IO Day
 currentDay =
   localDay <$> liftA2 utcToLocalTime getCurrentTimeZone getCurrentTime
 
+cfgPath :: String -> IO FilePath
+cfgPath fn = fmap (<> fn) $ getXdgDirectory XdgConfig $ "noxstatus" <> "/"
+
+clientSecretFP :: IO FilePath
+clientSecretFP = cfgPath "client_secret"
+
+-- Retreive ClientSecret, either from ENVAR
+-- or file.
+getClientSecret :: IO String
+getClientSecret = do
+  secFP <- clientSecretFP
+  mEnvSec <- lookupEnv "NOX_CLIENT_SECRET"
+  mFileSec <- fromFile secFP
+  let errMes = die $ "Error: No $NOX_CLIENT_SECRET envar or client secret file at: \"" <> secFP <> "\""
+  maybe errMes pure $ mEnvSec <|> mFileSec
+  where
+    fromFile :: FilePath -> IO (Maybe String)
+    fromFile fp = do
+      se <- try $ readFile fp
+      case se of
+        Left (e :: IOError) ->
+          if isDoesNotExistError e
+            then pure Nothing
+            else die $ "Error: Could not read client secret file: " <> fp
+        Right s -> pure $ Just $ strip s
+
 tokenPath :: IO FilePath
-tokenPath = getXdgDirectory XdgConfig $ "noxstatus" <> "/" <> "fn_token.json"
+tokenPath = cfgPath "fn_token.json"
 
 loadTokenFile :: IO FnToken
 loadTokenFile = do
@@ -158,10 +194,14 @@ newTokenFile ac = do
   exists <- doesFileExist =<< tokenPath
   if exists
     then tokenPath >>= die . ("Token file already exists at: " <>)
-    else
-      getAccessToken ac CS.clientSecret >>= \case
+    else do
+      cs <- getClientSecret
+      getAccessToken ac cs >>= \case
         Left e -> die $ "Error getting token file:\n" <> show e
         Right t -> do
           tp <- tokenPath
           encodeFile tp t
           putStrLn $ "Saved tokenfile to:\n" <> tp
+
+strip :: String -> String
+strip = reverse . dropWhile isSpace . reverse

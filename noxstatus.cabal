@@ -46,7 +46,6 @@ executable noxstatus
       shared-properties
   main-is: Main.hs
   other-modules:
-      ClientSecret
       Images
   hs-source-dirs:
       app
