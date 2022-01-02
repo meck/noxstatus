@@ -1,4 +1,4 @@
-module ClientSecret where
+module ClientSecret (clientSecret) where
 
 clientSecret :: String
 clientSecret = "CLIENTSECRET GOES HERE"

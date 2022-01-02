@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
-module Main where
+module Main (main) where
 
 import           Lib
 import qualified ClientSecret                  as CS
@@ -13,7 +13,6 @@ import qualified Text.PrettyPrint.Boxes        as B
 import           Data.Time.Clock
 import           Data.Time.Calendar
 import           Data.Time.LocalTime
-import           Data.Semigroup                 ( (<>) )
 import           System.Exit
 import           System.Directory
 import           System.IO.Error
