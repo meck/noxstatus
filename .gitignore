@@ -3,3 +3,4 @@ noxstatus.cabal
 stack.yaml.lock
 result
 *~
+.envrc
